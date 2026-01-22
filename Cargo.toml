@@ -1,0 +1,22 @@
+[package]
+name = "csvanalyzer"
+version = "0.1.0"
+edition = "2021"
+description = "CSV file analyzer for contact import"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_repr = "0.1"
+chardetng = "0.1"
+encoding_rs = "0.8"
+thiserror = "1"
+memchr = "2"
+postgres = "0.19"
+regex = "1"
+once_cell = "1"
+chrono = "0.4"
+
+[dev-dependencies]
+tempfile = "3"

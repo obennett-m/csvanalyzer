@@ -1,0 +1,4 @@
+email,name,age,active
+john@example.com,John Doe,30,true
+jane@example.com,Jane Smith,25,false
+bob@test.org,Bob Jones,45,true
