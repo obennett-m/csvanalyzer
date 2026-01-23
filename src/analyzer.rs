@@ -7,7 +7,9 @@ use crate::detection::{
 use crate::detection::charset::convert_to_utf8;
 use crate::error::{CsvAnalyzerError, Result};
 use crate::output::{ErrorResponse, SuccessResponse};
-use crate::types::constants::{BUFF_SIZE, MAX_BYTES, MAX_COLUMNS, MAX_RETURN_LINES, MAX_SCAN_LINES};
+use crate::types::constants::{
+    BUFF_SIZE, MAX_BYTES, MAX_COLUMNS, MAX_RETURN_LINES, MAX_SCAN_LINES,
+};
 use crate::types::{ContactProperty, CsvErrorType, DataType};
 use crate::validation::{
     check_duplicate_fields, is_binary_data, is_valid_string_size, validate_columns_count,

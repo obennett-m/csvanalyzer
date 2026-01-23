@@ -1,5 +1,7 @@
 use crate::detection::email::is_valid_email;
-use crate::types::constants::{EMAIL_DOMAIN_CHARS, EMAIL_LOCAL_CHARS, FIELD_DELIMS, FIELD_DELIM_PERCENT};
+use crate::types::constants::{
+    EMAIL_DOMAIN_CHARS, EMAIL_LOCAL_CHARS, FIELD_DELIMS, FIELD_DELIM_PERCENT,
+};
 
 /// Detect the field delimiter in CSV lines.
 /// Uses email-based detection as primary method, falling back to frequency-based.

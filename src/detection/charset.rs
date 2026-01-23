@@ -89,8 +89,7 @@ pub fn convert_to_utf8(data: &[u8], charset: &str) -> Result<String, String> {
 
     // If already UTF-8, just validate and return
     if charset_lower == "utf8" || charset_lower == "utf-8" || charset_lower == "utf-8bom" {
-        return String::from_utf8(data.to_vec())
-            .map_err(|e| format!("Invalid UTF-8: {}", e));
+        return String::from_utf8(data.to_vec()).map_err(|e| format!("Invalid UTF-8: {}", e));
     }
 
     // Get encoding from charset name

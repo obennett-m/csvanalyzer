@@ -2,9 +2,8 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 
 /// Simple email validation regex (matches Pascal CheckEmail function behavior)
-static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap()
-});
+static EMAIL_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap());
 
 /// Check if a string is a valid email address
 pub fn is_valid_email(email: &str) -> bool {

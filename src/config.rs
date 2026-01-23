@@ -58,7 +58,11 @@ impl DbConfig {
 
             if let Some((key, value)) = line.split_once('=') {
                 let key = key.trim().to_lowercase();
-                let value = value.trim().trim_matches('"').trim_matches('\'').to_string();
+                let value = value
+                    .trim()
+                    .trim_matches('"')
+                    .trim_matches('\'')
+                    .to_string();
                 values.insert(key, value);
             }
         }
@@ -77,7 +81,10 @@ impl DbConfig {
         if let Some(user) = values.get("db_user").or_else(|| values.get("pguser")) {
             config.user = user.clone();
         }
-        if let Some(pass) = values.get("db_password").or_else(|| values.get("pgpassword")) {
+        if let Some(pass) = values
+            .get("db_password")
+            .or_else(|| values.get("pgpassword"))
+        {
             config.password = pass.clone();
         }
 

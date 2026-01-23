@@ -22,16 +22,16 @@ impl Default for DataType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum CsvErrorType {
-    Process = 0,           // Unhandled exception
-    Database = 1,          // Database error
-    Sample = 2,            // Could not get sample (empty file)
-    Binary = 3,            // File is binary
+    Process = 0,            // Unhandled exception
+    Database = 1,           // Database error
+    Sample = 2,             // Could not get sample (empty file)
+    Binary = 3,             // File is binary
     VariousFieldsCount = 4, // Too much column count variation
-    TooMuchColumns = 5,    // Exceeds max columns
-    ColumnLong = 6,        // Column name too long
-    ValueLong = 7,         // Field value too long
-    DuplicateField = 8,    // Duplicate column name in header
-    EmailNotFound = 9,     // No email column detected
+    TooMuchColumns = 5,     // Exceeds max columns
+    ColumnLong = 6,         // Column name too long
+    ValueLong = 7,          // Field value too long
+    DuplicateField = 8,     // Duplicate column name in header
+    EmailNotFound = 9,      // No email column detected
 }
 
 impl fmt::Display for CsvErrorType {
@@ -110,22 +110,74 @@ pub mod constants {
 
 /// Date patterns matching Pascal mjutils.pas DATE_PATTERNS
 pub const DATE_PATTERNS: &[DatePattern] = &[
-    DatePattern { pattern: "yyyy-mm-dd", separator: '-', order: "y/m/d" },
-    DatePattern { pattern: "dd-mm-yyyy", separator: '-', order: "d/m/y" },
-    DatePattern { pattern: "dd/mm/yyyy", separator: '/', order: "d/m/y" },
-    DatePattern { pattern: "dd.mm.yyyy", separator: '.', order: "d/m/y" },
-    DatePattern { pattern: "yyyy.dd.mm", separator: '.', order: "y/m/d" },
-    DatePattern { pattern: "yyyy.mm.dd", separator: '.', order: "y/m/d" },
-    DatePattern { pattern: "yyyy/mm/dd", separator: '/', order: "y/m/d" },
-    DatePattern { pattern: "mm/dd/yyyy", separator: '/', order: "m/d/y" },
-    DatePattern { pattern: "mm.dd.yyyy", separator: '.', order: "m/d/y" },
-    DatePattern { pattern: "mm-dd-yyyy", separator: '-', order: "m/d/y" },
+    DatePattern {
+        pattern: "yyyy-mm-dd",
+        separator: '-',
+        order: "y/m/d",
+    },
+    DatePattern {
+        pattern: "dd-mm-yyyy",
+        separator: '-',
+        order: "d/m/y",
+    },
+    DatePattern {
+        pattern: "dd/mm/yyyy",
+        separator: '/',
+        order: "d/m/y",
+    },
+    DatePattern {
+        pattern: "dd.mm.yyyy",
+        separator: '.',
+        order: "d/m/y",
+    },
+    DatePattern {
+        pattern: "yyyy.dd.mm",
+        separator: '.',
+        order: "y/m/d",
+    },
+    DatePattern {
+        pattern: "yyyy.mm.dd",
+        separator: '.',
+        order: "y/m/d",
+    },
+    DatePattern {
+        pattern: "yyyy/mm/dd",
+        separator: '/',
+        order: "y/m/d",
+    },
+    DatePattern {
+        pattern: "mm/dd/yyyy",
+        separator: '/',
+        order: "m/d/y",
+    },
+    DatePattern {
+        pattern: "mm.dd.yyyy",
+        separator: '.',
+        order: "m/d/y",
+    },
+    DatePattern {
+        pattern: "mm-dd-yyyy",
+        separator: '-',
+        order: "m/d/y",
+    },
 ];
 
 /// Time patterns matching Pascal mjutils.pas TIME_PATTERNS
 pub const TIME_PATTERNS: &[TimePattern] = &[
-    TimePattern { pattern: "hh:nn:ss am/pm", separator: ':' },
-    TimePattern { pattern: "hh:nn:ss", separator: ':' },
-    TimePattern { pattern: "hh:nn am/pm", separator: ':' },
-    TimePattern { pattern: "hh:nn", separator: ':' },
+    TimePattern {
+        pattern: "hh:nn:ss am/pm",
+        separator: ':',
+    },
+    TimePattern {
+        pattern: "hh:nn:ss",
+        separator: ':',
+    },
+    TimePattern {
+        pattern: "hh:nn am/pm",
+        separator: ':',
+    },
+    TimePattern {
+        pattern: "hh:nn",
+        separator: ':',
+    },
 ];

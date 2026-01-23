@@ -8,10 +8,7 @@ pub fn detect_quote_char(lines: &[&str]) -> Option<char> {
     }
 
     // Track stats for each candidate: (char, total_count, lines_with_pairs)
-    let mut sep_stats: Vec<(char, usize, usize)> = TEXT_SEPS
-        .iter()
-        .map(|&c| (c, 0, 0))
-        .collect();
+    let mut sep_stats: Vec<(char, usize, usize)> = TEXT_SEPS.iter().map(|&c| (c, 0, 0)).collect();
 
     for line in lines {
         for stat in sep_stats.iter_mut() {

@@ -105,11 +105,7 @@ pub fn guess_datetime_format(value: &str, patterns: &mut DateTimePatterns) -> bo
         .retain(|(pattern, sep)| *sep == date_sep || pattern == "rfc3339");
 
     // Check RFC3339 format (e.g., 2020-01-15T10:30:00Z)
-    if patterns
-        .date_patterns
-        .iter()
-        .any(|(p, _)| p == "rfc3339")
-    {
+    if patterns.date_patterns.iter().any(|(p, _)| p == "rfc3339") {
         if is_rfc3339(value) {
             patterns.date_patterns.retain(|(p, _)| p == "rfc3339");
             patterns.time_patterns.clear();
@@ -181,7 +177,11 @@ fn try_parse_date(value: &str, pattern: &str, date_sep: char, time_sep: Option<c
     // Convert pattern to chrono format
     let chrono_pattern = pattern_to_chrono(pattern, date_sep);
 
-    NaiveDateTime::parse_from_str(&format!("{} 00:00:00", date_part), &format!("{} %H:%M:%S", chrono_pattern)).is_ok()
+    NaiveDateTime::parse_from_str(
+        &format!("{} 00:00:00", date_part),
+        &format!("{} %H:%M:%S", chrono_pattern),
+    )
+    .is_ok()
         || chrono::NaiveDate::parse_from_str(date_part, &chrono_pattern).is_ok()
 }
 

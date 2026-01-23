@@ -143,11 +143,7 @@ fn downgrade_types(type1: DataType, type2: DataType, bool_state: &BooleanState) 
         (Integer, Float) | (Float, Integer) => Float,
 
         // Boolean + Integer (when no string bools) -> Integer
-        (Boolean, Integer) | (Integer, Boolean)
-            if !bool_state.had_string_bool =>
-        {
-            Integer
-        }
+        (Boolean, Integer) | (Integer, Boolean) if !bool_state.had_string_bool => Integer,
 
         // Boolean with string bools + anything else -> String
         (Boolean, _) | (_, Boolean) if bool_state.had_string_bool => String,
@@ -197,7 +193,9 @@ fn is_string_value(value: &str) -> bool {
     }
 
     // Check if all characters are numeric/decimal
-    let allowed: &[char] = &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', '-', '+'];
+    let allowed: &[char] = &[
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', '-', '+',
+    ];
 
     for c in value.chars() {
         if !allowed.contains(&c) {

@@ -171,7 +171,11 @@ mod tests {
 
     #[test]
     fn test_check_duplicate_fields() {
-        let headers = vec!["name".to_string(), "email".to_string(), "country".to_string()];
+        let headers = vec![
+            "name".to_string(),
+            "email".to_string(),
+            "country".to_string(),
+        ];
         assert!(check_duplicate_fields(&headers).is_ok());
 
         let dup_headers = vec!["name".to_string(), "email".to_string(), "Name".to_string()];
