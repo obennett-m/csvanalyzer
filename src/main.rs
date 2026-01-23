@@ -1,12 +1,15 @@
 use clap::Parser;
-use csvanalyzer::{Config, CsvAnalyzer, DbConfig};
+use csvanalyzertool::{Config, CsvAnalyzer, DbConfig};
 use std::path::Path;
 
 /// CSV Analyzer - Analyze CSV files for contact import
 #[derive(Parser, Debug)]
-#[command(name = "csvanalyzer")]
+#[command(name = "csvanalyzertool")]
 #[command(about = "Analyze CSV files for contact import, detecting format and validating data")]
-#[command(version)]
+#[command(
+    version,
+    after_help = "Tool will print 10 records of CSV file in JSON format or empty string if invalid CSV file.\nIn case of unexpected exception, tool will print message started with: \"Error: <message>\""
+)]
 struct Args {
     /// Account ID (required for database queries)
     #[arg(short = 'a', long = "akid", required = true)]

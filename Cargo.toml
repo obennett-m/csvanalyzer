@@ -1,8 +1,8 @@
 [package]
-name = "csvanalyzer"
+name = "csvanalyzertool"
 version = "0.1.0"
 edition = "2021"
-description = "CSV file analyzer for contact import"
+description = "Tool which analyzes a CSV file and shows a preview of CSV records. "
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }

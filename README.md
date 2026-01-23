@@ -1,4 +1,4 @@
-# CSV Analyzer
+# CSV Analyzer Tool
 
 A Rust rewrite of the Pascal csvanalyzer tool from [mj-core-core](https://github.com/mailgun/mj-core-core) for analyzing CSV files for contact imports.
 
@@ -20,7 +20,7 @@ A Rust rewrite of the Pascal csvanalyzer tool from [mj-core-core](https://github
 ## Usage
 
 ```bash
-csvanalyzer -a <akid> -f <csv_file> -l <locale> [-c <config_file>]
+csvanalyzertool -a <akid> -f <csv_file> -l <locale> [-c <config_file>]
 ```
 
 Arguments:
@@ -67,7 +67,7 @@ cd csvanalyzer
 cargo build --release
 ```
 
-The binary will be at `target/release/csvanalyzer`.
+The binary will be at `target/release/csvanalyzertool`.
 
 ## Dependencies
 
