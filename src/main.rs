@@ -9,19 +9,19 @@ use std::path::Path;
 #[command(version)]
 struct Args {
     /// Account ID (required for database queries)
-    #[arg(long = "akid", required = true)]
+    #[arg(short = 'a', long = "akid", required = true)]
     akid: i64,
 
     /// User locale (e.g., "en_US")
-    #[arg(long = "locale", required = true)]
+    #[arg(short = 'l', long = "locale", required = true)]
     locale: String,
 
     /// Path to CSV file
-    #[arg(long = "filename", required = true)]
+    #[arg(short = 'f', long = "filename", required = true)]
     filename: String,
 
     /// Path to config file (default: /etc/mailjet.conf)
-    #[arg(long = "config")]
+    #[arg(short = 'c', long = "config")]
     config_file: Option<String>,
 
     /// PostgreSQL host (overrides config file and env vars)
