@@ -4,7 +4,9 @@ use std::fmt;
 /// Data type codes matching Pascal mjconsts.pas
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum DataType {
+    #[default]
     String = 0,
     Integer = 1,
     Float = 2,
@@ -12,11 +14,6 @@ pub enum DataType {
     DateTime = 4,
 }
 
-impl Default for DataType {
-    fn default() -> Self {
-        DataType::String
-    }
-}
 
 /// CSV error type codes matching Pascal csvanalyzer.pas
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]

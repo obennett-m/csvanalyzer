@@ -1,10 +1,9 @@
 use crate::config::Config;
 use crate::db::{match_property, DbConnection};
 use crate::detection::{
-    detect_charset, detect_data_type, detect_delimiter, detect_email_column, detect_quote_char,
-    has_header,
+    charset::convert_to_utf8, detect_charset, detect_data_type, detect_delimiter,
+    detect_email_column, detect_quote_char, has_header,
 };
-use crate::detection::charset::convert_to_utf8;
 use crate::error::{CsvAnalyzerError, Result};
 use crate::output::{ErrorResponse, SuccessResponse};
 use crate::types::constants::{
@@ -69,8 +68,8 @@ impl CsvAnalyzer {
         self.charset = detect_charset(&sample);
 
         // Convert to UTF-8
-        let text = convert_to_utf8(&sample, &self.charset)
-            .map_err(|e| CsvAnalyzerError::EncodingError(e))?;
+        let text =
+            convert_to_utf8(&sample, &self.charset).map_err(CsvAnalyzerError::EncodingError)?;
 
         // Split into lines
         let lines: Vec<&str> = text.lines().take(MAX_SCAN_LINES + 1).collect();
@@ -135,7 +134,7 @@ impl CsvAnalyzer {
             },
             self.skip_header,
         )
-        .ok_or_else(|| CsvAnalyzerError::CsvError(CsvErrorType::EmailNotFound))?;
+        .ok_or(CsvAnalyzerError::CsvError(CsvErrorType::EmailNotFound))?;
 
         // Connect to database and get contact properties
         let properties = self.get_contact_properties()?;
@@ -259,12 +258,12 @@ impl CsvAnalyzer {
                     line_count += 1;
                 }
 
-                if line_count >= MAX_SCAN_LINES + 1 || total_bytes >= MAX_BYTES {
+                if line_count > MAX_SCAN_LINES || total_bytes >= MAX_BYTES {
                     break;
                 }
             }
 
-            if line_count >= MAX_SCAN_LINES + 1 || total_bytes >= MAX_BYTES {
+            if line_count > MAX_SCAN_LINES || total_bytes >= MAX_BYTES {
                 break;
             }
         }
@@ -297,9 +296,9 @@ impl CsvAnalyzer {
         let mut fields = Vec::new();
         let mut current_field = String::new();
         let mut inside_quotes = false;
-        let mut chars = line.chars().peekable();
+        let chars = line.chars().peekable();
 
-        while let Some(c) = chars.next() {
+        for c in chars {
             if c == self.text_sep {
                 inside_quotes = !inside_quotes;
             } else if c == self.field_delim && !inside_quotes {

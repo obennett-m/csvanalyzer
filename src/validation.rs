@@ -33,7 +33,7 @@ pub fn validate_columns_count(
     // Count columns in each line (bucket approach like Pascal)
     let mut bucket: HashMap<usize, usize> = HashMap::new();
 
-    for (_row_idx, line) in lines.iter().enumerate() {
+    for line in lines.iter() {
         // +1 because N delimiters = N+1 columns
         let col_count = count_delimiters(delimiter, line, text_sep) + 1;
 

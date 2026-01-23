@@ -15,7 +15,7 @@ pub fn detect_quote_char(lines: &[&str]) -> Option<char> {
             let count = count_char(stat.0, line);
 
             // Must be even (pairs) to be a valid text separator
-            if count % 2 != 0 {
+            if !count.is_multiple_of(2) {
                 // Invalid - reset counts for this separator
                 stat.1 = 0;
                 stat.2 = 0;
