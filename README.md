@@ -1,21 +1,76 @@
 # CSV Analyzer Tool
 
+[![CI](https://github.com/obennett-m/csvanalyzer/workflows/CI/badge.svg)](https://github.com/obennett-m/csvanalyzer/actions/workflows/ci.yml)
+[![Release](https://github.com/obennett-m/csvanalyzer/workflows/Release%20Build/badge.svg)](https://github.com/obennett-m/csvanalyzer/actions/workflows/release.yml)
+
 A Rust rewrite of the Pascal csvanalyzer tool from [mj-core-core](https://github.com/mailgun/mj-core-core) for analyzing CSV files for contact imports.
+
+## Overview
+
+csvanalyzertool automatically detects and analyzes CSV file characteristics for contact list imports. It identifies format settings, validates data, maps columns to contact properties, and returns structured JSON output ready for import processing.
 
 ## Features
 
-- Detects CSV format characteristics:
-  - Header presence
-  - Field separator (comma, semicolon, pipe, tab, etc.)
-  - Text delimiter (quotes)
-  - Character encoding/charset
-  - Email column (mandatory)
-  - Data types per column (string, integer, float, boolean, datetime)
-  - Date/time format patterns
-  - Decimal point format
+### Format Detection
+- **Delimiter detection**: Comma, semicolon, pipe, tab, and custom separators
+- **Quote character detection**: Single and double quotes
+- **Header detection**: Automatic identification of header rows
+- **Character encoding**: Auto-detection and conversion (UTF-8, UTF-16, ISO-8859-1, Windows-1252, etc.)
+- **Email column identification**: Required email field detection
 
-- Matches CSV columns to contact properties via database metadata
-- Returns JSON output matching the import batch job config format
+### Data Analysis
+- **Data type detection**: String, Integer, Float, Boolean, DateTime
+- **DateTime format detection**: Multiple date/time patterns with RFC3339 support
+- **Decimal format detection**: Comma vs period decimal separators
+- **Column validation**: Max 200 columns, configurable string length limits
+- **Database integration**: Maps CSV columns to contact properties via PostgreSQL
+
+### Output
+- **JSON format**: Structured output matching import batch job config
+- **Sample data**: Returns first N rows (configurable, default 10)
+- **Error handling**: Detailed error messages for troubleshooting
+- **Validation**: Binary file detection, column count limits, required field checks
+
+## Installation
+
+### Pre-built Binaries (Recommended)
+
+Download the latest release for your platform:
+
+| Platform | Binary | Notes |
+|----------|--------|-------|
+| Linux x86_64 | [csvanalyzertool-linux-x86_64] | Dynamic linking (glibc) |
+| Linux x86_64 (musl) | [csvanalyzertool-linux-x86_64-musl] | Static binary, no dependencies |
+| macOS Intel | [csvanalyzertool-macos-x86_64] | Intel-based Macs |
+| macOS Apple Silicon | [csvanalyzertool-macos-aarch64] | M1/M2/M3 Macs |
+| Windows x86_64 | [csvanalyzertool-windows-x86_64.exe] | 64-bit Windows |
+
+[csvanalyzertool-linux-x86_64]: https://github.com/mailgun/mj-core-core/releases/latest/download/csvanalyzertool-linux-x86_64
+[csvanalyzertool-linux-x86_64-musl]: https://github.com/mailgun/mj-core-core/releases/latest/download/csvanalyzertool-linux-x86_64-musl
+[csvanalyzertool-macos-x86_64]: https://github.com/mailgun/mj-core-core/releases/latest/download/csvanalyzertool-macos-x86_64
+[csvanalyzertool-macos-aarch64]: https://github.com/mailgun/mj-core-core/releases/latest/download/csvanalyzertool-macos-aarch64
+[csvanalyzertool-windows-x86_64.exe]: https://github.com/mailgun/mj-core-core/releases/latest/download/csvanalyzertool-windows-x86_64.exe
+
+**Linux/macOS Installation:**
+```bash
+# Download and install
+curl -LO https://github.com/mailgun/mj-core-core/releases/latest/download/csvanalyzertool-linux-x86_64
+chmod +x csvanalyzertool-linux-x86_64
+sudo mv csvanalyzertool-linux-x86_64 /usr/local/bin/csvanalyzertool
+
+# Verify installation
+csvanalyzertool --version
+```
+
+### Build from Source
+
+```bash
+git clone https://github.com/mailgun/mj-core-core.git
+cd mj-core-core/csvanalyzer
+cargo build --release
+```
+
+The binary will be at `target/release/csvanalyzertool`.
 
 ## Usage
 
@@ -60,7 +115,9 @@ On error, it returns an error JSON object with error details.
 | Database property matching | ✓ | ✓ |
 | Error JSON response | ✓ | ✓ |
 
-## Building
+## Development
+
+### Building
 
 ```bash
 cd csvanalyzer
@@ -69,9 +126,43 @@ cargo build --release
 
 The binary will be at `target/release/csvanalyzertool`.
 
+### Running Tests
+
+```bash
+cargo test
+```
+
+### Cross-Compilation
+
+The project uses GitHub Actions to automatically build binaries for multiple platforms. See `.github/workflows/release.yml` for the build configuration.
+
+To cross-compile locally:
+
+```bash
+# Install target
+rustup target add x86_64-unknown-linux-musl
+
+# Build for target
+cargo build --release --target x86_64-unknown-linux-musl
+```
+
 ## Dependencies
 
 - PostgreSQL client (for contact metadata queries)
 - CSV parsing
 - Charset detection
 - Date/time format detection
+
+## Release Process
+
+Releases are automatically created when a new tag is pushed:
+
+```bash
+git tag -a v1.0.0 -m "Release version 1.0.0"
+git push origin v1.0.0
+```
+
+This triggers the GitHub Actions workflow that:
+1. Builds binaries for all supported platforms
+2. Creates SHA256 checksums for each binary
+3. Creates a GitHub release with all artifacts
