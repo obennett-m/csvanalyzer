@@ -14,7 +14,6 @@ pub enum DataType {
     DateTime = 4,
 }
 
-
 /// CSV error type codes matching Pascal csvanalyzer.pas
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
