@@ -138,4 +138,8 @@ jobs:
           echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
 
       - name: Build
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
         run: cargo build --target ${{ matrix.target }} --verbose
