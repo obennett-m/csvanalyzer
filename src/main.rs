@@ -69,10 +69,19 @@ fn main() {
     }
 
     // Build database config
-    let db_config = build_db_config(&args);
+    let db_config = match build_db_config(&args) {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!(
+                "{{\"Error\":3,\"ErrorMsgUser\":\"Database configuration error\",\"ErrorMsgInternal\":\"{}\"}}",
+                e
+            );
+            std::process::exit(1);
+        }
+    };
 
     // Build main config
-    let mut config = Config::new(args.akid, args.locale, args.filename).with_db_config(db_config);
+    let mut config = Config::new_with_db(args.akid, args.locale, args.filename, db_config);
 
     if let Some(scan_lines) = args.scan_lines {
         config.scan_lines = scan_lines;
@@ -89,45 +98,79 @@ fn main() {
     println!("{}", result);
 }
 
-fn build_db_config(args: &Args) -> DbConfig {
-    // Start with environment variables
-    let mut db_config = DbConfig::from_env();
+fn build_db_config(args: &Args) -> Result<DbConfig, String> {
+    // Priority: CLI args > config file > environment variables
+    let mut db_config: Option<DbConfig> = None;
 
-    // Try loading from config file if specified
+    // Try loading from config file first
     if let Some(ref config_path) = args.config_file {
         if Path::new(config_path).exists() {
-            if let Ok(file_config) = DbConfig::from_file(config_path) {
-                db_config = file_config;
-            } else {
-                eprintln!("Warning: Could not parse config file: {}", config_path);
-            }
+            db_config = match DbConfig::from_file(config_path) {
+                Ok(config) => Some(config),
+                Err(e) => return Err(format!("Failed to load config file {}: {}", config_path, e)),
+            };
+        } else {
+            return Err(format!("Config file not found: {}", config_path));
         }
     } else {
         // Try default config file
         let default_config = "/etc/mailjet.conf";
         if Path::new(default_config).exists() {
-            if let Ok(file_config) = DbConfig::from_file(default_config) {
-                db_config = file_config;
-            }
+            db_config = DbConfig::from_file(default_config).ok();
         }
     }
 
-    // CLI arguments override everything
-    if let Some(ref host) = args.db_host {
-        db_config.host = host.clone();
-    }
-    if let Some(port) = args.db_port {
-        db_config.port = port;
-    }
-    if let Some(ref name) = args.db_name {
-        db_config.database = name.clone();
-    }
-    if let Some(ref user) = args.db_user {
-        db_config.user = user.clone();
-    }
-    if let Some(ref password) = args.db_password {
-        db_config.password = password.clone();
+    // Try environment variables if no config file loaded
+    if db_config.is_none() {
+        db_config = DbConfig::from_env().ok();
     }
 
-    db_config
+    // If still no config, check if we have all required CLI args to build one
+    if db_config.is_none() {
+        let has_all_cli_args = args.db_host.is_some()
+            && args.db_name.is_some()
+            && args.db_user.is_some()
+            && args.db_password.is_some();
+
+        if !has_all_cli_args {
+            return Err(
+                "Database configuration not found. Please provide configuration via:\n\
+                 - Config file (--config or /etc/mailjet.conf)\n\
+                 - Environment variables (PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD)\n\
+                 - CLI arguments (--db-host, --db-name, --db-user, --db-password)"
+                    .to_string(),
+            );
+        }
+
+        // Build config from CLI arguments
+        db_config = Some(DbConfig::new(
+            args.db_host.clone().unwrap(),
+            args.db_port.unwrap_or(5432),
+            args.db_name.clone().unwrap(),
+            args.db_user.clone().unwrap(),
+            args.db_password.clone().unwrap(),
+        ));
+    }
+
+    // Get the config (we know it exists at this point)
+    let mut config = db_config.unwrap();
+
+    // CLI arguments override everything
+    if let Some(ref host) = args.db_host {
+        config.host = host.clone();
+    }
+    if let Some(port) = args.db_port {
+        config.port = port;
+    }
+    if let Some(ref name) = args.db_name {
+        config.database = name.clone();
+    }
+    if let Some(ref user) = args.db_user {
+        config.user = user.clone();
+    }
+    if let Some(ref password) = args.db_password {
+        config.password = password.clone();
+    }
+
+    Ok(config)
 }

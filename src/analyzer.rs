@@ -373,10 +373,18 @@ impl CsvAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::DbConfig;
 
     #[test]
     fn test_parse_line_simple() {
-        let config = Config::new(1, "en_US".to_string(), "test.csv".to_string());
+        let db_config = DbConfig::new(
+            "localhost".to_string(),
+            5432,
+            "test".to_string(),
+            "test".to_string(),
+            "test".to_string(),
+        );
+        let config = Config::new_with_db(1, "en_US".to_string(), "test.csv".to_string(), db_config);
         let mut analyzer = CsvAnalyzer::new(config);
         analyzer.field_delim = ',';
         analyzer.text_sep = '"';
@@ -387,7 +395,14 @@ mod tests {
 
     #[test]
     fn test_parse_line_with_quotes() {
-        let config = Config::new(1, "en_US".to_string(), "test.csv".to_string());
+        let db_config = DbConfig::new(
+            "localhost".to_string(),
+            5432,
+            "test".to_string(),
+            "test".to_string(),
+            "test".to_string(),
+        );
+        let config = Config::new_with_db(1, "en_US".to_string(), "test.csv".to_string(), db_config);
         let mut analyzer = CsvAnalyzer::new(config);
         analyzer.field_delim = ',';
         analyzer.text_sep = '"';
@@ -398,7 +413,14 @@ mod tests {
 
     #[test]
     fn test_parse_line_semicolon() {
-        let config = Config::new(1, "en_US".to_string(), "test.csv".to_string());
+        let db_config = DbConfig::new(
+            "localhost".to_string(),
+            5432,
+            "test".to_string(),
+            "test".to_string(),
+            "test".to_string(),
+        );
+        let config = Config::new_with_db(1, "en_US".to_string(), "test.csv".to_string(), db_config);
         let mut analyzer = CsvAnalyzer::new(config);
         analyzer.field_delim = ';';
         analyzer.text_sep = '"';

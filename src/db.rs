@@ -48,20 +48,59 @@ impl DbConnection {
             akid
         );
 
-        let row = client.query_one(&sql, &[]).map_err(|e| {
+        // Use simple_query to avoid prepared statement issues with PgBouncer
+        let messages = client.simple_query(&sql).map_err(|e| {
             CsvAnalyzerError::DatabaseError(format!("Failed to query app table: {}", e))
         })?;
 
-        Ok(PoolInfo {
-            pool: row.get(0),
-            ip_rw: row.get(1),
-            db_version: row.get(2),
-        })
+        // Find the first Row message and extract data
+        for message in messages {
+            if let postgres::SimpleQueryMessage::Row(row) = message {
+                // row.get() returns Option<&str>
+                let pool_str = row.get(0).ok_or_else(|| {
+                    CsvAnalyzerError::DatabaseError("Column 0 (pool) is NULL".to_string())
+                })?;
+                let pool: i32 = pool_str.parse().map_err(|_| {
+                    CsvAnalyzerError::DatabaseError(format!(
+                        "Failed to parse pool value: '{}'",
+                        pool_str
+                    ))
+                })?;
+
+                let ip_rw = row
+                    .get(1)
+                    .ok_or_else(|| {
+                        CsvAnalyzerError::DatabaseError("Column 1 (ip_rw) is NULL".to_string())
+                    })?
+                    .to_string();
+
+                let db_version_str = row.get(2).ok_or_else(|| {
+                    CsvAnalyzerError::DatabaseError("Column 2 (db_version) is NULL".to_string())
+                })?;
+                let db_version: i32 = db_version_str.parse().map_err(|_| {
+                    CsvAnalyzerError::DatabaseError(format!(
+                        "Failed to parse db_version value: '{}'",
+                        db_version_str
+                    ))
+                })?;
+
+                return Ok(PoolInfo {
+                    pool,
+                    ip_rw,
+                    db_version,
+                });
+            }
+        }
+
+        Err(CsvAnalyzerError::DatabaseError(
+            "No rows returned from app table query".to_string(),
+        ))
     }
 
     /// Connect to user pool database
     pub fn connect_user_pool(&mut self, pool_info: &PoolInfo) -> Result<()> {
-        let pool_name = format!("pool{:02}", pool_info.pool);
+        // Format the pool number as a database name with 7-digit zero padding
+        let pool_name = format!("p{:07}", pool_info.pool);
         let conn_str = self
             .config
             .user_pool_connection_string(&pool_info.ip_rw, &pool_name);
@@ -74,36 +113,70 @@ impl DbConnection {
     }
 
     /// Query contact metadata for an account
-    pub fn get_contact_properties(&mut self, akid: i64) -> Result<Vec<ContactProperty>> {
+    pub fn get_contact_properties(&mut self, _akid: i64) -> Result<Vec<ContactProperty>> {
         let client = self.user_client.as_mut().ok_or_else(|| {
             CsvAnalyzerError::DatabaseError("User pool connection not established".to_string())
         })?;
 
         // mnStatic = 0 (static namespace for contact properties)
-        let sql = format!(
-            "SELECT name, datatype FROM t{}_contact_meta WHERE namespace = 0",
-            akid
-        );
+        // let sql = format!(
+        //     "SELECT name, datatype FROM t{_akid}_contact_meta WHERE namespace = 0",
+        // );
+        let sql = "SELECT name, datatype FROM contact_meta WHERE namespace = 0".to_string();
 
-        let rows = client.query(&sql, &[]).map_err(|e| {
-            CsvAnalyzerError::DatabaseError(format!("Failed to query contact_meta: {}", e))
+        // Use simple_query to avoid prepared statement issues with PgBouncer
+        let messages = client.simple_query(&sql).map_err(|e| {
+            CsvAnalyzerError::DatabaseError(format!( "Failed to query contact_meta: {}", e ))
         })?;
 
         let mut properties = Vec::new();
-        for row in rows {
-            let name: String = row.get(0);
-            let datatype_int: i32 = row.get(1);
+        let mut row_count = 0;
 
-            let datatype = match datatype_int {
-                0 => DataType::String,
-                1 => DataType::Integer,
-                2 => DataType::Float,
-                3 => DataType::Boolean,
-                4 => DataType::DateTime,
-                _ => DataType::String,
-            };
+        // Iterate through messages and process Row variants
+        for message in messages {
+            if let postgres::SimpleQueryMessage::Row(row) = message {
+                // row.get() returns Option<&str>
+                let name = row
+                    .get(0)
+                    .ok_or_else(|| {
+                        CsvAnalyzerError::DatabaseError(format!(
+                            "Column 0 (name) is NULL at row {}",
+                            row_count
+                        ))
+                    })?
+                    .to_string();
 
-            properties.push(ContactProperty { name, datatype });
+                let datatype_str = row.get(1).ok_or_else(|| {
+                    CsvAnalyzerError::DatabaseError(format!(
+                        "Column 1 (datatype) is NULL at row {}",
+                        row_count
+                    ))
+                })?;
+
+                let datatype_int: i32 = datatype_str.parse().map_err(|_| {
+                    CsvAnalyzerError::DatabaseError(format!(
+                        "Failed to parse datatype value '{}' at row {}",
+                        datatype_str, row_count
+                    ))
+                })?;
+
+                let datatype = match datatype_int {
+                    0 => DataType::String,
+                    1 => DataType::Integer,
+                    2 => DataType::Float,
+                    3 => DataType::Boolean,
+                    4 => DataType::DateTime,
+                    _ => DataType::String,
+                };
+
+                #[cfg(debug_assertions)]
+                eprintln!(
+                    "DEBUG: Parsed property {} - name: {}, datatype: {:?}",
+                    row_count, name, datatype
+                );
+                properties.push(ContactProperty { name, datatype });
+                row_count += 1;
+            }
         }
 
         Ok(properties)
