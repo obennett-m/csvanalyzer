@@ -101,7 +101,7 @@ jobs:
             sudo apt-get install -y musl-tools
           fi
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
+            sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
           fi
 
       - name: Cache cargo registry
@@ -127,6 +127,15 @@ jobs:
           key: ${{ runner.os }}-target-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-target-${{ matrix.target }}-
+
+      - name: Set up cargo config for cross-compilation (Linux aarch64)
+        if: matrix.platform.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          mkdir -p .cargo
+          echo '[target.aarch64-unknown-linux-gnu]' >> .cargo/config.toml
+          echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
+          echo '[target.aarch64-unknown-linux-musl]' >> .cargo/config.toml
+          echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
 
       - name: Build
         run: cargo build --target ${{ matrix.target }} --verbose
