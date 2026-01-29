@@ -84,6 +84,10 @@ jobs:
           fi
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
             sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
+            wget https://musl.cc/aarch64-linux-musl-cross.tgz
+            tar -xzf aarch64-linux-musl-cross.tgz
+            sudo mv aarch64-linux-musl-cross /opt/
+            echo "/opt/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
           fi
 
       - name: Set up cargo config for cross-compilation (Linux aarch64)
