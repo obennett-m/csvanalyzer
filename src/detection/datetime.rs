@@ -7,6 +7,10 @@ const DATE_SEPS: &[char] = &['/', '-', '.'];
 /// Time separator characters
 const TIME_SEPS: &[char] = &[':'];
 
+/// Minimum length of a RFC3339 date including time character
+/// e.g. 2020-01-01T
+const MIN_RFC3339_LEN: usize = 11;
+
 /// Patterns that have been validated for a column
 #[derive(Debug, Clone, Default)]
 pub struct DateTimePatterns {
@@ -82,15 +86,11 @@ pub fn could_be_datetime(value: &str) -> bool {
 pub fn guess_datetime_format(value: &str, patterns: &mut DateTimePatterns) -> bool {
     let value = value.trim();
     if value.is_empty() {
-        return patterns.date_patterns.is_empty().not();
+        return !patterns.date_patterns.is_empty();
     }
 
     // Detect separators in the value
-    let date_sep = value.chars().find(|c| DATE_SEPS.contains(c));
-    let time_sep = value.chars().find(|c| TIME_SEPS.contains(c));
-
-    // No date separator means not a valid datetime
-    let date_sep = match date_sep {
+    let date_sep = match value.chars().find(|c| DATE_SEPS.contains(c)) {
         Some(s) => s,
         None => {
             patterns.date_patterns.clear();
@@ -104,42 +104,27 @@ pub fn guess_datetime_format(value: &str, patterns: &mut DateTimePatterns) -> bo
         .date_patterns
         .retain(|(pattern, sep)| *sep == date_sep || pattern == "rfc3339");
 
-    // Check RFC3339 format (e.g., 2020-01-15T10:30:00Z)
+    // Check RFC3339 format
     if patterns.date_patterns.iter().any(|(p, _)| p == "rfc3339") {
         if is_rfc3339(value) {
             patterns.date_patterns.retain(|(p, _)| p == "rfc3339");
             patterns.time_patterns.clear();
             return true;
-        } else {
-            patterns.date_patterns.retain(|(p, _)| p != "rfc3339");
         }
+        patterns.date_patterns.retain(|(p, _)| p != "rfc3339");
     }
 
     // Try to parse with each remaining date pattern
-    let mut valid_date_patterns = Vec::new();
+    let time_sep = value.chars().find(|c| TIME_SEPS.contains(c));
+    patterns
+        .date_patterns
+        .retain(|(pattern, sep)| try_parse_date(value, pattern, *sep, time_sep));
 
-    for (pattern, sep) in patterns.date_patterns.iter() {
-        if try_parse_date(value, pattern, *sep, time_sep) {
-            valid_date_patterns.push((pattern.clone(), *sep));
-        }
-    }
-
-    patterns.date_patterns = valid_date_patterns;
-
-    // If we have a time separator, validate time patterns too
+    // Validate time patterns if time separator exists
     if let Some(ts) = time_sep {
-        patterns.time_patterns.retain(|(_, sep)| *sep == ts);
-
-        // Try parsing time component
-        if !patterns.time_patterns.is_empty() {
-            let mut valid_time_patterns = Vec::new();
-            for (pattern, sep) in patterns.time_patterns.iter() {
-                if try_parse_time(value, pattern) {
-                    valid_time_patterns.push((pattern.clone(), *sep));
-                }
-            }
-            patterns.time_patterns = valid_time_patterns;
-        }
+        patterns
+            .time_patterns
+            .retain(|(pattern, sep)| *sep == ts && try_parse_time(value, pattern));
     } else {
         // No time component
         patterns.time_patterns.clear();
@@ -150,31 +135,21 @@ pub fn guess_datetime_format(value: &str, patterns: &mut DateTimePatterns) -> bo
 
 /// Check if value is RFC3339 format
 fn is_rfc3339(value: &str) -> bool {
-    if value.len() < 11 {
-        return false;
-    }
-
-    let c = value.chars().nth(10);
-    if c != Some('T') && c != Some('t') {
-        return false;
-    }
-
-    // Try parsing as RFC3339
-    chrono::DateTime::parse_from_rfc3339(value).is_ok()
-        || chrono::DateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S%.fZ").is_ok()
-        || chrono::DateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%SZ").is_ok()
+    value.len() >= MIN_RFC3339_LEN
+        && matches!(value.chars().nth(10), Some('T') | Some('t'))
+        && (chrono::DateTime::parse_from_rfc3339(value).is_ok()
+            || chrono::DateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S%.fZ").is_ok()
+            || chrono::DateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%SZ").is_ok())
 }
 
 /// Try to parse a date value with a specific pattern
 fn try_parse_date(value: &str, pattern: &str, date_sep: char, time_sep: Option<char>) -> bool {
     let date_part = if time_sep.is_some() {
-        // Extract just the date part
         value.split_whitespace().next().unwrap_or(value)
     } else {
         value
     };
 
-    // Convert pattern to chrono format
     let chrono_pattern = pattern_to_chrono(pattern, date_sep);
 
     NaiveDateTime::parse_from_str(
@@ -187,14 +162,14 @@ fn try_parse_date(value: &str, pattern: &str, date_sep: char, time_sep: Option<c
 
 /// Try to parse a time value with a specific pattern
 fn try_parse_time(value: &str, pattern: &str) -> bool {
-    // Extract time part (after space)
-    let time_part = value.split_whitespace().nth(1).unwrap_or("");
-    if time_part.is_empty() {
-        return false;
-    }
-
-    let chrono_pattern = time_pattern_to_chrono(pattern);
-    chrono::NaiveTime::parse_from_str(time_part, &chrono_pattern).is_ok()
+    value
+        .split_whitespace()
+        .nth(1)
+        .map(|time_part| {
+            let chrono_pattern = time_pattern_to_chrono(pattern);
+            chrono::NaiveTime::parse_from_str(time_part, &chrono_pattern).is_ok()
+        })
+        .unwrap_or(false)
 }
 
 /// Convert Pascal date pattern to chrono format
@@ -220,16 +195,6 @@ fn time_pattern_to_chrono(pattern: &str) -> String {
         p.replace(" am/pm", " %p").replace("%H", "%I")
     } else {
         p
-    }
-}
-
-trait BoolExt {
-    fn not(self) -> bool;
-}
-
-impl BoolExt for bool {
-    fn not(self) -> bool {
-        !self
     }
 }
 
