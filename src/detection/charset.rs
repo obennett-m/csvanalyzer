@@ -11,18 +11,18 @@ const UTF16_LE_BOM: &[u8] = &[0xFF, 0xFE];
 /// UTF-16 BE BOM bytes
 const UTF16_BE_BOM: &[u8] = &[0xFE, 0xFF];
 
+/// Allow guessing UTF-8 encoding
+const ALLOW_UTF8: bool = true;
+
 /// Detect the character encoding of the given data.
 /// Returns a normalized encoding name.
 pub fn detect_charset(data: &[u8]) -> String {
     // Check for BOM markers first
-    if data.len() >= 3 && data.starts_with(UTF8_BOM) {
-        return "UTF-8BOM".to_string();
-    }
-    if data.len() >= 2 && data.starts_with(UTF16_LE_BOM) {
-        return "UTF-16LE".to_string();
-    }
-    if data.len() >= 2 && data.starts_with(UTF16_BE_BOM) {
-        return "UTF-16BE".to_string();
+    match data {
+        d if d.starts_with(UTF8_BOM) => return "UTF-8BOM".to_string(),
+        d if d.len() >= 2 && d.starts_with(UTF16_LE_BOM) => return "UTF-16LE".to_string(),
+        d if d.len() >= 2 && d.starts_with(UTF16_BE_BOM) => return "UTF-16BE".to_string(),
+        _ => {}
     }
 
     // For small files, use quick encoding guess
@@ -33,7 +33,7 @@ pub fn detect_charset(data: &[u8]) -> String {
     // Use chardetng for larger files
     let mut detector = EncodingDetector::new();
     detector.feed(data, true);
-    let (encoding, _confident) = detector.guess_assess(None, true);
+    let encoding = detector.guess(None, ALLOW_UTF8);
 
     normalize_encoding(encoding.name())
 }
@@ -41,16 +41,16 @@ pub fn detect_charset(data: &[u8]) -> String {
 /// Quick encoding detection for small samples
 fn guess_encoding_quick(data: &[u8]) -> String {
     // Check if valid UTF-8
-    if std::str::from_utf8(data).is_ok() {
-        return "utf8".to_string();
+    match std::str::from_utf8(data) {
+        Ok(_) => "utf8".to_string(),
+        Err(_) => {
+            // Use chardetng for non-UTF-8
+            let mut detector = EncodingDetector::new();
+            detector.feed(data, true);
+            let encoding = detector.guess(None, ALLOW_UTF8);
+            normalize_encoding(encoding.name())
+        }
     }
-
-    // Use chardetng for non-UTF-8
-    let mut detector = EncodingDetector::new();
-    detector.feed(data, true);
-    let (encoding, _) = detector.guess_assess(None, true);
-
-    normalize_encoding(encoding.name())
 }
 
 /// Normalize encoding name to match Pascal implementation
@@ -72,23 +72,16 @@ fn normalize_encoding(name: &str) -> String {
 pub fn convert_to_utf8(data: &[u8], charset: &str) -> Result<String, String> {
     let charset_lower = charset.to_lowercase();
 
-    // Handle BOM
-    let data = if charset_lower == "utf-8bom" && data.starts_with(UTF8_BOM) {
-        &data[3..]
-    } else if (charset_lower == "utf-16le" || charset_lower == "utf16le")
-        && data.starts_with(UTF16_LE_BOM)
-    {
-        &data[2..]
-    } else if (charset_lower == "utf-16be" || charset_lower == "utf16be")
-        && data.starts_with(UTF16_BE_BOM)
-    {
-        &data[2..]
-    } else {
-        data
+    // Strip BOM if present
+    let data = match charset_lower.as_str() {
+        "utf-8bom" if data.starts_with(UTF8_BOM) => &data[3..],
+        "utf-16le" | "utf16le" if data.len() >= 2 && data.starts_with(UTF16_LE_BOM) => &data[2..],
+        "utf-16be" | "utf16be" if data.len() >= 2 && data.starts_with(UTF16_BE_BOM) => &data[2..],
+        _ => data,
     };
 
     // If already UTF-8, just validate and return
-    if charset_lower == "utf8" || charset_lower == "utf-8" || charset_lower == "utf-8bom" {
+    if matches!(charset_lower.as_str(), "utf8" | "utf-8" | "utf-8bom") {
         return String::from_utf8(data.to_vec()).map_err(|e| format!("Invalid UTF-8: {}", e));
     }
 
@@ -101,15 +94,13 @@ pub fn convert_to_utf8(data: &[u8], charset: &str) -> Result<String, String> {
         "cp1252" | "windows-1252" | "windows1252" => encoding_rs::WINDOWS_1252,
         "cp1251" | "windows-1251" | "windows1251" => encoding_rs::WINDOWS_1251,
         "cp1250" | "windows-1250" | "windows1250" => encoding_rs::WINDOWS_1250,
-        _ => {
-            // Try to get encoding by name
-            Encoding::for_label(charset.as_bytes()).unwrap_or(encoding_rs::UTF_8)
-        }
+        // Try to get encoding by name, or fallback to UTF-8
+        _ => Encoding::for_label(charset.as_bytes()).unwrap_or(encoding_rs::UTF_8),
     };
 
     let (decoded, _, had_errors) = encoding.decode(data);
     if had_errors {
-        // Still return the decoded content with replacement chars
+        // For now, return the decoded content with replacement chars
         Ok(decoded.into_owned())
     } else {
         Ok(decoded.into_owned())
