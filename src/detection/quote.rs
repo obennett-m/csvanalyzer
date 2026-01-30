@@ -12,7 +12,7 @@ pub fn detect_quote_char(lines: &[&str]) -> Option<char> {
 
     for line in lines {
         for stat in sep_stats.iter_mut() {
-            let count = count_char(stat.0, line);
+            let count = line.chars().filter(|&ch| ch == stat.0).count();
 
             // Must be even (pairs) to be a valid text separator
             if !count.is_multiple_of(2) {
@@ -29,28 +29,14 @@ pub fn detect_quote_char(lines: &[&str]) -> Option<char> {
         }
     }
 
-    // Find separator with highest count
-    let mut best_idx: Option<usize> = None;
-    for (i, stat) in sep_stats.iter().enumerate() {
-        if stat.1 > 0 && (best_idx.is_none() || stat.1 > sep_stats[best_idx.unwrap()].1) {
-            best_idx = Some(i);
-        }
-    }
-
-    // Check if winner exists in at least TEXT_SEP_PERCENT of lines
-    if let Some(idx) = best_idx {
-        let percentage = (sep_stats[idx].2 * 100) / lines.len();
-        if percentage >= TEXT_SEP_PERCENT {
-            return Some(sep_stats[idx].0);
-        }
-    }
-
-    None
-}
-
-/// Count occurrences of a character in a string
-fn count_char(c: char, s: &str) -> usize {
-    s.chars().filter(|&ch| ch == c).count()
+    // Find separator with highest count that appears in enough lines
+    sep_stats
+        .iter()
+        .filter(|&&(_, total, lines_present)| {
+            total > 0 && (lines_present * 100 / lines.len()) >= TEXT_SEP_PERCENT
+        })
+        .max_by_key(|&&(_, total, _)| total)
+        .map(|&(sep, _, _)| sep)
 }
 
 #[cfg(test)]
