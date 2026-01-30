@@ -12,7 +12,6 @@ pub struct BooleanState {
 pub fn detect_value_type(value: &str, bool_state: &mut BooleanState) -> DataType {
     let value = value.trim();
 
-    // Empty values are strings
     if value.is_empty() {
         return DataType::String;
     }
@@ -24,29 +23,20 @@ pub fn detect_value_type(value: &str, bool_state: &mut BooleanState) -> DataType
 
     // Try boolean first (has precedence per MJAPP-2440)
     if let Some(is_string_bool) = try_parse_boolean(value) {
-        if is_string_bool {
-            bool_state.had_string_bool = true;
-        }
+        bool_state.had_string_bool |= is_string_bool;
         return DataType::Boolean;
     }
 
-    // Try integer
+    // Try integer -> float -> datetime -> string
     if try_parse_integer(value) {
-        return DataType::Integer;
+        DataType::Integer
+    } else if try_parse_float(value) {
+        DataType::Float
+    } else if guess_datetime_format(value, &mut DateTimePatterns::new()) {
+        DataType::DateTime
+    } else {
+        DataType::String
     }
-
-    // Try float
-    if try_parse_float(value) {
-        return DataType::Float;
-    }
-
-    // Try datetime
-    let mut patterns = DateTimePatterns::new();
-    if guess_datetime_format(value, &mut patterns) {
-        return DataType::DateTime;
-    }
-
-    DataType::String
 }
 
 /// Detect the data type for an entire column
@@ -55,7 +45,6 @@ pub fn detect_data_type(
     values: &[&str],
     meta_type: Option<DataType>,
 ) -> (DataType, Option<DateTimePatterns>) {
-    // If no values but metadata exists, use metadata type
     if values.is_empty() {
         return (meta_type.unwrap_or(DataType::String), None);
     }
@@ -66,59 +55,23 @@ pub fn detect_data_type(
 
     for value in values {
         let value = value.trim();
-
-        // Skip empty values
         if value.is_empty() {
             continue;
         }
 
-        let value_type = if could_be_datetime(value) && datetime_patterns.is_some() {
-            // For datetime, update the patterns
-            let patterns = datetime_patterns.as_mut().unwrap();
-            if guess_datetime_format(value, patterns) {
-                DataType::DateTime
-            } else {
-                detect_value_type(value, &mut bool_state)
-            }
-        } else if could_be_datetime(value) && current_type == Some(DataType::DateTime) {
-            // Initialize datetime patterns if first datetime
-            let mut patterns = DateTimePatterns::new();
-            if guess_datetime_format(value, &mut patterns) {
-                datetime_patterns = Some(patterns);
-                DataType::DateTime
-            } else {
-                detect_value_type(value, &mut bool_state)
-            }
-        } else {
-            // Regular type detection, but check datetime specially
-            let vt = detect_value_type(value, &mut bool_state);
-            if vt == DataType::DateTime {
-                let mut patterns = DateTimePatterns::new();
-                if guess_datetime_format(value, &mut patterns) {
-                    datetime_patterns = Some(patterns);
-                }
-            }
-            vt
-        };
+        let value_type = detect_value_with_patterns(value, &mut bool_state, &mut datetime_patterns);
 
-        match current_type {
-            None => {
-                current_type = Some(value_type);
-            }
-            Some(ct) if ct == value_type => {
-                // Same type, continue
-            }
+        current_type = match current_type {
+            None => Some(value_type),
+            Some(ct) if ct == value_type => Some(ct),
             Some(ct) => {
-                // Type mismatch - apply downgrading rules
                 let new_type = downgrade_types(ct, value_type, &bool_state);
-                current_type = Some(new_type);
-
-                // If downgraded to string, we're done
                 if new_type == DataType::String {
                     return (DataType::String, None);
                 }
+                Some(new_type)
             }
-        }
+        };
     }
 
     let final_type = current_type.unwrap_or(DataType::String);
@@ -131,6 +84,39 @@ pub fn detect_data_type(
     (final_type, patterns)
 }
 
+/// Helper to detect value type while managing datetime patterns
+fn detect_value_with_patterns(
+    value: &str,
+    bool_state: &mut BooleanState,
+    datetime_patterns: &mut Option<DateTimePatterns>,
+) -> DataType {
+    if !could_be_datetime(value) {
+        let vt = detect_value_type(value, bool_state);
+        if vt == DataType::DateTime {
+            let mut patterns = DateTimePatterns::new();
+            if guess_datetime_format(value, &mut patterns) {
+                *datetime_patterns = Some(patterns);
+            }
+        }
+        return vt;
+    }
+
+    // Try to use or initialize datetime patterns
+    if let Some(patterns) = datetime_patterns {
+        if guess_datetime_format(value, patterns) {
+            return DataType::DateTime;
+        }
+    } else {
+        let mut patterns = DateTimePatterns::new();
+        if guess_datetime_format(value, &mut patterns) {
+            *datetime_patterns = Some(patterns);
+            return DataType::DateTime;
+        }
+    }
+
+    detect_value_type(value, bool_state)
+}
+
 /// Downgrade types when there's a mismatch
 fn downgrade_types(type1: DataType, type2: DataType, bool_state: &BooleanState) -> DataType {
     use DataType::*;
@@ -138,17 +124,13 @@ fn downgrade_types(type1: DataType, type2: DataType, bool_state: &BooleanState) 
     match (type1, type2) {
         // Same types
         (a, b) if a == b => a,
-
         // Integer and Float are compatible -> Float
         (Integer, Float) | (Float, Integer) => Float,
-
         // Boolean + Integer (when no string bools) -> Integer
         (Boolean, Integer) | (Integer, Boolean) if !bool_state.had_string_bool => Integer,
-
         // Boolean with string bools + anything else -> String
         (Boolean, _) | (_, Boolean) if bool_state.had_string_bool => String,
-
-        // Otherwise, apply downgrade chain
+        // Otherwise, downgrade until compatible or String
         _ => {
             let mut t = type1;
             while t != type2 && t != String {
@@ -169,17 +151,11 @@ fn downgrade_one_step(t: DataType, bool_state: &BooleanState) -> DataType {
     use DataType::*;
 
     match t {
-        Boolean => {
-            if bool_state.had_string_bool {
-                String
-            } else {
-                Integer
-            }
-        }
+        Boolean if bool_state.had_string_bool => String,
+        Boolean => Integer,
         Integer => Float,
         Float => DateTime,
-        DateTime => String,
-        String => String,
+        DateTime | String => String,
     }
 }
 
@@ -188,37 +164,24 @@ fn is_string_value(value: &str) -> bool {
     let value_lower = value.to_lowercase();
 
     // Check for boolean strings
-    if value_lower == "true" || value_lower == "false" {
+    if matches!(value_lower.as_str(), "true" | "false") {
         return false;
     }
 
-    // Check if all characters are numeric/decimal
-    let allowed: &[char] = &[
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', '-', '+',
-    ];
-
-    for c in value.chars() {
-        if !allowed.contains(&c) {
-            return true;
-        }
-    }
-
-    false
+    // Check if contains non-numeric characters
+    value
+        .chars()
+        .any(|c| !matches!(c, '0'..='9' | '.' | ',' | '-' | '+'))
 }
 
 /// Try to parse as boolean, returns Some(is_string_form) if valid
 fn try_parse_boolean(value: &str) -> Option<bool> {
     let value_lower = value.to_lowercase();
-
-    if value_lower == "true" || value_lower == "false" {
-        return Some(true); // string form
+    match value_lower.as_str() {
+        "true" | "false" => Some(true),                 // string form
+        _ if matches!(value, "0" | "1") => Some(false), // numeric form
+        _ => None,
     }
-
-    if value == "0" || value == "1" {
-        return Some(false); // numeric form
-    }
-
-    None
 }
 
 /// Try to parse as integer
