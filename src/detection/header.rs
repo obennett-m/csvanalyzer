@@ -4,11 +4,10 @@ use crate::types::constants::{EMAIL_DOMAIN_CHARS, EMAIL_LOCAL_CHARS};
 /// Detect whether the first line is a header.
 /// Returns true if the first line appears to be a header (not data).
 pub fn has_header(lines: &[&str], text_sep: char, delimiter: char) -> bool {
-    if lines.is_empty() {
-        return true;
-    }
-
-    let first_line = lines[0];
+    let first_line = match lines.first() {
+        Some(&line) => line,
+        None => return true,
+    };
 
     // Check if first line contains a valid email address - if so, no header
     if contains_valid_email(first_line) {
@@ -16,59 +15,37 @@ pub fn has_header(lines: &[&str], text_sep: char, delimiter: char) -> bool {
     }
 
     // If header has empty fields (e.g., ";;;"), consider it not a header
-    let stripped: String = first_line
+    let has_content = first_line
         .chars()
-        .filter(|&c| c != delimiter && c != text_sep)
-        .collect();
-
-    if stripped.trim().is_empty() {
-        return false;
-    }
+        .any(|c| c != delimiter && c != text_sep && !c.is_whitespace());
 
     // Default: assume has header
-    true
+    has_content
 }
 
 /// Check if a line contains a valid email address
 fn contains_valid_email(line: &str) -> bool {
     let chars: Vec<char> = line.chars().collect();
-    let len = chars.len();
 
-    let mut pos = 0;
-    while pos < len {
+    for (at_pos, &ch) in chars.iter().enumerate() {
         // Find @ sign
-        if chars[pos] != '@' {
-            pos += 1;
+        if ch != '@' {
             continue;
         }
 
-        let at_pos = pos;
-
         // Find start of local part
-        let mut local_start = at_pos;
-        for i in (0..at_pos).rev() {
-            let c = chars[i].to_ascii_lowercase();
-            if !EMAIL_LOCAL_CHARS.contains(c) {
-                local_start = i + 1;
-                break;
-            }
-            if i == 0 {
-                local_start = 0;
-            }
-        }
+        let local_start = chars[..at_pos]
+            .iter()
+            .rposition(|&c| !EMAIL_LOCAL_CHARS.contains(c.to_ascii_lowercase()))
+            .map(|pos| pos + 1)
+            .unwrap_or(0);
 
         // Find end of domain
-        let mut domain_end = at_pos;
-        for i in (at_pos + 1)..len {
-            let c = chars[i].to_ascii_lowercase();
-            if !EMAIL_DOMAIN_CHARS.contains(c) {
-                domain_end = i - 1;
-                break;
-            }
-            if i == len - 1 {
-                domain_end = len - 1;
-            }
-        }
+        let domain_end = chars[(at_pos + 1)..]
+            .iter()
+            .position(|&c| !EMAIL_DOMAIN_CHARS.contains(c.to_ascii_lowercase()))
+            .map(|pos| at_pos + pos)
+            .unwrap_or(chars.len() - 1);
 
         // Extract and validate email
         if local_start < at_pos && at_pos < domain_end {
@@ -80,8 +57,6 @@ fn contains_valid_email(line: &str) -> bool {
                 return true;
             }
         }
-
-        pos = at_pos + 1;
     }
 
     false
@@ -112,6 +87,7 @@ mod tests {
     #[test]
     fn test_contains_valid_email() {
         assert!(contains_valid_email("john@example.com,John"));
+        assert!(contains_valid_email("john+lol1@example.com,John"));
         assert!(!contains_valid_email("email,name,country"));
     }
 }

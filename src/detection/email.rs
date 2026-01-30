@@ -1,35 +1,26 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-/// Simple email validation regex (matches Pascal CheckEmail function behavior)
+/// Simple email validation regex (matches FreePascal CheckEmail function behavior)
 static EMAIL_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap());
 
 /// Check if a string is a valid email address
 pub fn is_valid_email(email: &str) -> bool {
     let email = email.trim();
-    if email.is_empty() {
-        return false;
-    }
-
-    // Basic structural checks
-    let at_pos = match email.find('@') {
-        Some(pos) => pos,
-        None => return false,
-    };
 
     // Must have local part and domain
-    if at_pos == 0 || at_pos == email.len() - 1 {
-        return false;
-    }
+    let at_pos = match email.find('@') {
+        Some(pos) if pos > 0 && pos < email.len() - 1 => pos,
+        _ => return false,
+    };
 
     // Domain must have a dot
-    let domain = &email[at_pos + 1..];
-    if !domain.contains('.') {
+    if !email[at_pos + 1..].contains('.') {
         return false;
     }
 
-    // Use regex for final validation
+    // Final Boss
     EMAIL_REGEX.is_match(email)
 }
 
@@ -40,24 +31,20 @@ pub fn detect_email_column(
     header: Option<&[String]>,
     skip_header: bool,
 ) -> Option<usize> {
-    if rows.is_empty() {
-        return None;
-    }
-
-    let num_columns = rows[0].len();
+    let num_columns = rows.first()?.len();
     if num_columns == 0 {
         return None;
     }
 
-    // First check if header has "email" or "e-mail"
+    // Check header first for "email" or "e-mail"
     if skip_header {
-        if let Some(headers) = header {
-            for (i, h) in headers.iter().enumerate() {
+        if let Some(col) = header.and_then(|headers| {
+            headers.iter().position(|h| {
                 let h_lower = h.to_lowercase();
-                if h_lower == "email" || h_lower == "e-mail" {
-                    return Some(i);
-                }
-            }
+                matches!(h_lower.as_str(), "email" | "e-mail")
+            })
+        }) {
+            return Some(col);
         }
     }
 
@@ -65,37 +52,20 @@ pub fn detect_email_column(
     let mut email_counts: Vec<usize> = vec![0; num_columns];
 
     for row in rows {
-        for (col_idx, value) in row.iter().enumerate() {
-            if col_idx < email_counts.len() && !value.is_empty() && is_valid_email(value) {
+        for (col_idx, value) in row.iter().enumerate().take(num_columns) {
+            if !value.is_empty() && is_valid_email(value) {
                 email_counts[col_idx] += 1;
             }
         }
     }
 
     // Find column with most valid emails
-    let mut best_col: Option<usize> = None;
-    let mut best_count = 0;
-
-    for (col_idx, &count) in email_counts.iter().enumerate() {
-        if count > best_count {
-            best_count = count;
-            best_col = Some(col_idx);
-        }
-    }
-
-    // If not found by counting, check header again for "e-mail" variant
-    if best_col.is_none() && skip_header {
-        if let Some(headers) = header {
-            for (i, h) in headers.iter().enumerate() {
-                let h_lower = h.to_lowercase();
-                if h_lower == "e-mail" {
-                    return Some(i);
-                }
-            }
-        }
-    }
-
-    best_col
+    email_counts
+        .iter()
+        .enumerate()
+        .max_by_key(|&(_, &count)| count)
+        .filter(|&(_, &count)| count > 0)
+        .map(|(idx, _)| idx)
 }
 
 #[cfg(test)]
