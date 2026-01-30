@@ -225,3 +225,130 @@ impl Config {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_config_file_pgglobal() {
+        // Create a temporary config file
+        let config_content = r#"[GENERAL]
+MAILJET_AKID=12345
+SERVICEMAILAKID=67890
+
+[PGUSER]
+USERNAME=pguser
+PASSWORD=pguser_pass
+
+[PGGLOBAL]
+USERNAME=test_user
+HOSTNAME=test.example.com
+DATABASENAME=test_db
+PASSWORD=test_pass
+
+[COMMON]
+ThisServerName=server01
+"#;
+
+        let temp_dir = std::env::temp_dir();
+        let config_path = temp_dir.join("test_mailjet.conf");
+        std::fs::write(&config_path, config_content).unwrap();
+
+        let db_config = DbConfig::from_file(&config_path).unwrap();
+
+        assert_eq!(db_config.host, "test.example.com");
+        assert_eq!(db_config.port, 5432); // Default port
+        assert_eq!(db_config.database, "test_db");
+        assert_eq!(db_config.user, "test_user");
+        assert_eq!(db_config.password, "test_pass");
+
+        // Clean up
+        std::fs::remove_file(config_path).ok();
+    }
+
+    #[test]
+    fn test_parse_config_file_with_port() {
+        let config_content = r#"[PGGLOBAL]
+USERNAME=test_user
+HOSTNAME=test.example.com
+PORT=5433
+DATABASENAME=test_db
+PASSWORD=test_pass
+"#;
+
+        let temp_dir = std::env::temp_dir();
+        let config_path = temp_dir.join("test_mailjet_port.conf");
+        std::fs::write(&config_path, config_content).unwrap();
+
+        let db_config = DbConfig::from_file(&config_path).unwrap();
+
+        assert_eq!(db_config.port, 5433);
+
+        // Clean up
+        std::fs::remove_file(config_path).ok();
+    }
+
+    #[test]
+    fn test_parse_config_file_missing_section() {
+        let config_content = r#"[GENERAL]
+MAILJET_AKID=12345
+
+[PGUSER]
+USERNAME=pguser
+PASSWORD=pguser_pass
+"#;
+
+        let temp_dir = std::env::temp_dir();
+        let config_path = temp_dir.join("test_mailjet_missing.conf");
+        std::fs::write(&config_path, config_content).unwrap();
+
+        let result = DbConfig::from_file(&config_path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("PGGLOBAL"));
+
+        // Clean up
+        std::fs::remove_file(config_path).ok();
+    }
+
+    #[test]
+    fn test_parse_config_file_missing_field() {
+        let config_content = r#"[PGGLOBAL]
+USERNAME=test_user
+HOSTNAME=test.example.com
+PASSWORD=test_pass
+"#;
+
+        let temp_dir = std::env::temp_dir();
+        let config_path = temp_dir.join("test_mailjet_missing_field.conf");
+        std::fs::write(&config_path, config_content).unwrap();
+
+        let result = DbConfig::from_file(&config_path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("DATABASENAME"));
+
+        // Clean up
+        std::fs::remove_file(config_path).ok();
+    }
+
+    #[test]
+    fn test_parse_config_file_empty_values() {
+        let config_content = r#"[PGGLOBAL]
+USERNAME=test_user
+HOSTNAME=
+DATABASENAME=test_db
+PASSWORD=test_pass
+"#;
+
+        let temp_dir = std::env::temp_dir();
+        let config_path = temp_dir.join("test_mailjet_empty.conf");
+        std::fs::write(&config_path, config_content).unwrap();
+
+        let result = DbConfig::from_file(&config_path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("HOSTNAME"));
+
+        // Clean up
+        std::fs::remove_file(config_path).ok();
+    }
+}
