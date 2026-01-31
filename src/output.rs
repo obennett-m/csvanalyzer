@@ -4,10 +4,12 @@ use serde::Serialize;
 /// Success response JSON structure
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct SuccessResponse {
+pub struct SuccessResponse<'a> {
     pub skip_header: bool,
-    pub locale: String,
-    pub charset: String,
+    #[serde(borrow)]
+    pub locale: &'a str,
+    #[serde(borrow)]
+    pub charset: &'a str,
     pub field_separator: String,
     pub text_delimiter: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -19,8 +21,8 @@ pub struct SuccessResponse {
     pub data: Option<Vec<Vec<String>>>,
 }
 
-impl SuccessResponse {
-    pub fn new(locale: String, charset: String) -> Self {
+impl<'a> SuccessResponse<'a> {
+    pub fn new(locale: &'a str, charset: &'a str) -> Self {
         SuccessResponse {
             skip_header: true,
             locale,
@@ -58,9 +60,9 @@ impl SuccessResponse {
 /// Error response JSON structure
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct ErrorResponse {
+pub struct ErrorResponse<'a> {
     pub error: u8,
-    pub error_msg_user: String,
+    pub error_msg_user: &'static str,
     pub error_msg_internal: String,
     pub error_row: usize,
     pub error_column: usize,
@@ -68,8 +70,10 @@ pub struct ErrorResponse {
     pub error_data_type: u8,
     pub error_column_count: usize,
     pub skip_header: bool,
-    pub locale: String,
-    pub charset: String,
+    #[serde(borrow)]
+    pub locale: &'a str,
+    #[serde(borrow)]
+    pub charset: &'a str,
     pub field_separator: String,
     pub text_delimiter: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -80,11 +84,11 @@ pub struct ErrorResponse {
     pub data_types: Option<Vec<DataType>>,
 }
 
-impl ErrorResponse {
-    pub fn new(error_type: CsvErrorType, locale: String, charset: String) -> Self {
+impl<'a> ErrorResponse<'a> {
+    pub fn new(error_type: CsvErrorType, locale: &'a str, charset: &'a str) -> Self {
         ErrorResponse {
             error: error_type as u8,
-            error_msg_user: error_type.message().to_string(),
+            error_msg_user: error_type.message(),
             error_msg_internal: String::new(),
             error_row: 0,
             error_column: 0,
@@ -103,8 +107,8 @@ impl ErrorResponse {
     }
 
     /// Set internal error message
-    pub fn with_internal_message(mut self, msg: String) -> Self {
-        self.error_msg_internal = msg;
+    pub fn with_internal_message(mut self, msg: impl Into<String>) -> Self {
+        self.error_msg_internal = msg.into();
         self
     }
 
@@ -116,8 +120,8 @@ impl ErrorResponse {
     }
 
     /// Set error field
-    pub fn with_field(mut self, field: String) -> Self {
-        self.error_field = field;
+    pub fn with_field(mut self, field: impl Into<String>) -> Self {
+        self.error_field = field.into();
         self
     }
 
@@ -167,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_success_response_json() {
-        let mut response = SuccessResponse::new("en_US".to_string(), "utf8".to_string());
+        let mut response = SuccessResponse::new("en_US", "utf8");
         response.set_field_separator(',');
         response.set_text_delimiter('"');
         response.header_names = vec!["email".to_string(), "name".to_string()];
@@ -182,11 +186,7 @@ mod tests {
 
     #[test]
     fn test_error_response_json() {
-        let response = ErrorResponse::new(
-            CsvErrorType::EmailNotFound,
-            "en_US".to_string(),
-            "utf8".to_string(),
-        );
+        let response = ErrorResponse::new(CsvErrorType::EmailNotFound, "en_US", "utf8");
 
         let json = response.to_json();
         assert!(json.contains("\"Error\":9"));
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_hex_encoding() {
-        let mut response = SuccessResponse::new("en_US".to_string(), "utf8".to_string());
+        let mut response = SuccessResponse::new("en_US", "utf8");
         response.set_field_separator(';');
         assert_eq!(response.field_separator, "3B");
 

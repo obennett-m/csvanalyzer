@@ -16,13 +16,19 @@ pub struct DbConfig {
 
 impl DbConfig {
     /// Create a new DbConfig with explicit values
-    pub fn new(host: String, port: u16, database: String, user: String, password: String) -> Self {
+    pub fn new(
+        host: impl Into<String>,
+        port: u16,
+        database: impl Into<String>,
+        user: impl Into<String>,
+        password: impl Into<String>,
+    ) -> Self {
         DbConfig {
-            host,
+            host: host.into(),
             port,
-            database,
-            user,
-            password,
+            database: database.into(),
+            user: user.into(),
+            password: password.into(),
         }
     }
 
@@ -85,9 +91,7 @@ impl DbConfig {
             // Check if this is a section header
             if line.starts_with('[') && line.ends_with(']') {
                 current_section = line[1..line.len() - 1].to_uppercase();
-                sections
-                    .entry(current_section.clone())
-                    .or_insert_with(HashMap::new);
+                sections.entry(current_section.clone()).or_default();
                 continue;
             }
 
@@ -198,22 +202,27 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(akid: i64, locale: String, filename: String) -> Result<Self> {
+    pub fn new(akid: i64, locale: impl Into<String>, filename: impl Into<String>) -> Result<Self> {
         Ok(Config {
             akid,
-            locale,
-            filename,
+            locale: locale.into(),
+            filename: filename.into(),
             db: DbConfig::from_env()?,
             scan_lines: crate::types::constants::MAX_SCAN_LINES,
             return_lines: crate::types::constants::MAX_RETURN_LINES,
         })
     }
 
-    pub fn new_with_db(akid: i64, locale: String, filename: String, db: DbConfig) -> Self {
+    pub fn new_with_db(
+        akid: i64,
+        locale: impl Into<String>,
+        filename: impl Into<String>,
+        db: DbConfig,
+    ) -> Self {
         Config {
             akid,
-            locale,
-            filename,
+            locale: locale.into(),
+            filename: filename.into(),
             db,
             scan_lines: crate::types::constants::MAX_SCAN_LINES,
             return_lines: crate::types::constants::MAX_RETURN_LINES,

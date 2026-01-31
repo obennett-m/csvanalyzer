@@ -55,7 +55,7 @@ impl CsvAnalyzer {
     }
 
     /// Internal analysis implementation
-    fn analyze_internal(&mut self) -> Result<SuccessResponse> {
+    fn analyze_internal(&mut self) -> Result<SuccessResponse<'_>> {
         // Read sample from file
         let sample = self.read_sample()?;
 
@@ -217,7 +217,7 @@ impl CsvAnalyzer {
         }
 
         // Build success response
-        let mut response = SuccessResponse::new(self.config.locale.clone(), self.charset.clone());
+        let mut response = SuccessResponse::new(&self.config.locale, &self.charset);
         response.skip_header = self.skip_header;
         response.set_field_separator(self.field_delim);
         response.set_text_delimiter(self.text_sep);
@@ -355,14 +355,14 @@ impl CsvAnalyzer {
     }
 
     /// Build error response
-    fn build_error_response(&self, error: CsvAnalyzerError) -> ErrorResponse {
+    fn build_error_response(&self, error: CsvAnalyzerError) -> ErrorResponse<'_> {
         let error_type = error.error_type();
         let internal_msg = format!("{}", error);
 
-        ErrorResponse::new(error_type, self.config.locale.clone(), self.charset.clone())
+        ErrorResponse::new(error_type, &self.config.locale, &self.charset)
             .with_internal_message(internal_msg)
             .with_location(self.current_row, self.current_col)
-            .with_field(self.current_field.clone())
+            .with_field(&self.current_field)
             .with_data_type(self.current_data_type)
             .with_column_count(self.current_col_count)
             .with_field_separator(self.field_delim)
@@ -377,14 +377,8 @@ mod tests {
 
     #[test]
     fn test_parse_line_simple() {
-        let db_config = DbConfig::new(
-            "localhost".to_string(),
-            5432,
-            "test".to_string(),
-            "test".to_string(),
-            "test".to_string(),
-        );
-        let config = Config::new_with_db(1, "en_US".to_string(), "test.csv".to_string(), db_config);
+        let db_config = DbConfig::new("localhost", 5432, "test", "test", "test");
+        let config = Config::new_with_db(1, "en_US", "test.csv", db_config);
         let mut analyzer = CsvAnalyzer::new(config);
         analyzer.field_delim = ',';
         analyzer.text_sep = '"';
@@ -395,14 +389,8 @@ mod tests {
 
     #[test]
     fn test_parse_line_with_quotes() {
-        let db_config = DbConfig::new(
-            "localhost".to_string(),
-            5432,
-            "test".to_string(),
-            "test".to_string(),
-            "test".to_string(),
-        );
-        let config = Config::new_with_db(1, "en_US".to_string(), "test.csv".to_string(), db_config);
+        let db_config = DbConfig::new("localhost", 5432, "test", "test", "test");
+        let config = Config::new_with_db(1, "en_US", "test.csv", db_config);
         let mut analyzer = CsvAnalyzer::new(config);
         analyzer.field_delim = ',';
         analyzer.text_sep = '"';
@@ -413,14 +401,8 @@ mod tests {
 
     #[test]
     fn test_parse_line_semicolon() {
-        let db_config = DbConfig::new(
-            "localhost".to_string(),
-            5432,
-            "test".to_string(),
-            "test".to_string(),
-            "test".to_string(),
-        );
-        let config = Config::new_with_db(1, "en_US".to_string(), "test.csv".to_string(), db_config);
+        let db_config = DbConfig::new("localhost", 5432, "test", "test", "test");
+        let config = Config::new_with_db(1, "en_US", "test.csv", db_config);
         let mut analyzer = CsvAnalyzer::new(config);
         analyzer.field_delim = ';';
         analyzer.text_sep = '"';
