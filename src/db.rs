@@ -126,7 +126,7 @@ impl DbConnection {
 
         // Use simple_query to avoid prepared statement issues with PgBouncer
         let messages = client.simple_query(&sql).map_err(|e| {
-            CsvAnalyzerError::DatabaseError(format!( "Failed to query contact_meta: {}", e ))
+            CsvAnalyzerError::DatabaseError(format!("Failed to query contact_meta: {}", e))
         })?;
 
         let mut properties = Vec::new();

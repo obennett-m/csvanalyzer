@@ -97,7 +97,10 @@ pub fn convert_to_utf8(data: &[u8], charset: &str) -> Result<String, String> {
     };
 
     // If already UTF-8 or ASCII/ANSI (which is valid UTF-8 subset), just validate and return
-    if matches!(charset_lower.as_str(), "utf8" | "utf-8" | "utf-8bom" | "ansi" | "ascii") {
+    if matches!(
+        charset_lower.as_str(),
+        "utf8" | "utf-8" | "utf-8bom" | "ansi" | "ascii"
+    ) {
         return String::from_utf8(data.to_vec()).map_err(|e| format!("Invalid UTF-8: {}", e));
     }
 
