@@ -2,6 +2,11 @@ use crate::types::constants::CSVA_GUESS_SIZE;
 use chardetng::EncodingDetector;
 use encoding_rs::Encoding;
 
+/// Check if data contains only ASCII characters (7-bit)
+fn is_ascii(data: &[u8]) -> bool {
+    data.iter().all(|&b| b < 128)
+}
+
 /// UTF-8 BOM bytes
 const UTF8_BOM: &[u8] = &[0xEF, 0xBB, 0xBF];
 
@@ -30,6 +35,11 @@ pub fn detect_charset(data: &[u8]) -> String {
         return guess_encoding_quick(data);
     }
 
+    // Check if pure ASCII first (matches Pascal behavior: CodePage 0 = ASCII = 'Ansi')
+    if is_ascii(data) {
+        return "ansi".to_string();
+    }
+
     // Use chardetng for larger files
     let mut detector = EncodingDetector::new();
     detector.feed(data, true);
@@ -40,6 +50,11 @@ pub fn detect_charset(data: &[u8]) -> String {
 
 /// Quick encoding detection for small samples
 fn guess_encoding_quick(data: &[u8]) -> String {
+    // Check if pure ASCII (matches Pascal behavior: CodePage 0 = ASCII = 'Ansi')
+    if is_ascii(data) {
+        return "ansi".to_string();
+    }
+
     // Check if valid UTF-8
     match std::str::from_utf8(data) {
         Ok(_) => "utf8".to_string(),
@@ -64,6 +79,7 @@ fn normalize_encoding(name: &str) -> String {
         "iso-8859-15" | "iso8859-15" | "latin9" => "iso885915".to_string(),
         "windows-1252" | "cp1252" => "cp1252".to_string(),
         "windows-1251" | "cp1251" => "cp1251".to_string(),
+        "ascii" => "ansi".to_string(), // ASCII detected as 'ansi' (Pascal CodePage 0)
         _ => name_lower.replace("-", "").replace("_", ""),
     }
 }
@@ -80,8 +96,8 @@ pub fn convert_to_utf8(data: &[u8], charset: &str) -> Result<String, String> {
         _ => data,
     };
 
-    // If already UTF-8, just validate and return
-    if matches!(charset_lower.as_str(), "utf8" | "utf-8" | "utf-8bom") {
+    // If already UTF-8 or ASCII/ANSI (which is valid UTF-8 subset), just validate and return
+    if matches!(charset_lower.as_str(), "utf8" | "utf-8" | "utf-8bom" | "ansi" | "ascii") {
         return String::from_utf8(data.to_vec()).map_err(|e| format!("Invalid UTF-8: {}", e));
     }
 
@@ -124,9 +140,55 @@ mod tests {
     }
 
     #[test]
-    fn test_detect_utf8() {
+    fn test_detect_ascii() {
         let data = b"Hello, World!";
+        // ASCII content should be detected as 'ansi' (matching Pascal behavior)
+        assert_eq!(detect_charset(data), "ansi");
+    }
+
+    #[test]
+    fn test_detect_ascii_csv() {
+        // Test typical CSV with ASCII-only content (matches Pascal CodePage 0 behavior)
+        let data = b"email,name,age\ntest@example.com,John,25\ntest2@example.com,Jane,30";
+        assert_eq!(detect_charset(data), "ansi");
+    }
+
+    #[test]
+    fn test_detect_ascii_with_newlines() {
+        // Pure ASCII with various line endings
+        let data = b"line1\r\nline2\nline3\r";
+        assert_eq!(detect_charset(data), "ansi");
+    }
+
+    #[test]
+    fn test_detect_utf8_with_extended() {
+        // UTF-8 with non-ASCII characters
+        let data = "Hello, 世界!".as_bytes();
         assert_eq!(detect_charset(data), "utf8");
+    }
+
+    #[test]
+    fn test_detect_utf8_with_accents() {
+        // UTF-8 with European accented characters
+        let data = "email,name\ntest@example.com,José García".as_bytes();
+        assert_eq!(detect_charset(data), "utf8");
+    }
+
+    #[test]
+    fn test_is_ascii_helper() {
+        // Test the is_ascii helper function
+        assert!(is_ascii(b"Hello"));
+        assert!(is_ascii(b"test@example.com"));
+        assert!(is_ascii(b"123,456,789"));
+        assert!(!is_ascii("José".as_bytes())); // Has non-ASCII
+        assert!(!is_ascii(&[0xFF, 0xFE])); // High bytes
+    }
+
+    #[test]
+    fn test_normalize_encoding_ascii() {
+        // Test that 'ascii' normalizes to 'ansi'
+        assert_eq!(normalize_encoding("ASCII"), "ansi");
+        assert_eq!(normalize_encoding("ascii"), "ansi");
     }
 
     #[test]
@@ -134,5 +196,21 @@ mod tests {
         let data = b"Hello";
         let result = convert_to_utf8(data, "utf8").unwrap();
         assert_eq!(result, "Hello");
+    }
+
+    #[test]
+    fn test_convert_ansi() {
+        let data = b"Hello";
+        let result = convert_to_utf8(data, "ansi").unwrap();
+        assert_eq!(result, "Hello");
+    }
+
+    #[test]
+    fn test_convert_ansi_csv() {
+        // Test converting ASCII CSV data with 'ansi' charset
+        let data = b"email,name\ntest@example.com,John";
+        let result = convert_to_utf8(data, "ansi").unwrap();
+        assert!(result.contains("email,name"));
+        assert!(result.contains("test@example.com"));
     }
 }
