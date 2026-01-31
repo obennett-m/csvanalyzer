@@ -15,7 +15,7 @@ csvanalyzertool automatically detects and analyzes CSV file characteristics for 
 - **Delimiter detection**: Comma, semicolon, pipe, tab, and custom separators
 - **Quote character detection**: Single and double quotes
 - **Header detection**: Automatic identification of header rows
-- **Character encoding**: Auto-detection and conversion (UTF-8, UTF-16, ISO-8859-1, Windows-1252, etc.)
+- **Character encoding**: Auto-detection and conversion (UTF-8, UTF-16, ISO-8859-1, Windows-1252, ANSI/ASCII, etc.)
 - **Email column identification**: Required email field detection
 
 ### Data Analysis
@@ -65,8 +65,11 @@ csvanalyzertool --version
 ### Build from Source
 
 ```bash
+# Clone repository
 git clone https://github.com/mailgun/mj-core-core.git
 cd mj-core-core/csvanalyzer
+
+# Build release binary
 cargo build --release
 ```
 
@@ -74,15 +77,23 @@ The binary will be at `target/release/csvanalyzertool`.
 
 ## Usage
 
+### Basic Command
+
 ```bash
 csvanalyzertool -a <akid> -f <csv_file> -l <locale> [-c <config_file>]
 ```
 
-Arguments:
-- `-a, --akid <AKID>` - Account ID (required)
-- `-f, --file <FILE>` - CSV file path (required)
-- `-l, --locale <LOCALE>` - Locale string (required, e.g., "en_US")
-- `-c, --config <CONFIG>` - Config file path (optional)
+### Required Arguments
+
+- `--akid`, `-a`: Account ID for database queries (integer)
+- `--locale`, `-l`: User locale (e.g., "en_US", "fr_FR", "de_DE")
+- `--filename`, `-f`: Path to CSV file to analyze
+
+### Optional Arguments
+
+- `--config`, `-c`: Path to config file (default: `/etc/mailjet.conf`)
+- `--scan-lines`: Number of lines to scan (default: 1000)
+- `--return-lines`: Number of sample rows to return (default: 10)
 
 ## Output
 
@@ -144,6 +155,9 @@ rustup target add x86_64-unknown-linux-musl
 
 # Build for target
 cargo build --release --target x86_64-unknown-linux-musl
+
+# Binary location
+ls target/x86_64-unknown-linux-musl/release/csvanalyzertool
 ```
 
 ## Dependencies
